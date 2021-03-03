@@ -45,7 +45,15 @@ ADC_HandleTypeDef hadc1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+typedef struct {
+	ADC_ChannelConfTypeDef Config;
+	uint16_t data;
+} ADCStructure;
+ADCStructure ADCChannel[2] = { 0 };
+uint8_t button=0;
+uint8_t buttpre=1;
+uint8_t state=0;
+double ADCOutputConverted=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,7 +67,9 @@ static void MX_ADC1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void ADCPollingMethodInit();
+void ADCPollingMethodUpdate();
+void q();
 /* USER CODE END 0 */
 
 /**
@@ -93,14 +103,16 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-
+  ADCPollingMethodInit();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
+	ADCPollingMethodUpdate();
+	q();
+   /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -265,10 +277,58 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
+void ADCPollingMethodInit() {
+	//config all ADC Channel
+	ADCChannel[0].Config.Channel = ADC_CHANNEL_0;
+	ADCChannel[0].Config.Rank = 1;
+	ADCChannel[0].Config.SamplingTime = ADC_SAMPLETIME_3CYCLES;
 
+	ADCChannel[1].Config.Channel = ADC_CHANNEL_TEMPSENSOR;
+	ADCChannel[1].Config.Rank = 1;
+	ADCChannel[1].Config.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+
+}
+//Polling Method
+void ADCPollingMethodUpdate() {
+	//Read all 3 Channel
+	for (int i = 0; i < 2; i++) {
+		HAL_ADC_ConfigChannel(&hadc1, &ADCChannel[i].Config);
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 10);
+		ADCChannel[i].data = HAL_ADC_GetValue(&hadc1);
+		HAL_ADC_Stop(&hadc1);
+	}
+}
+void q(){
+	button=HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10);
+	switch(state){
+		case 0:
+			ADCOutputConverted=((ADCChannel[0].data*3.3)/4096)*1000;
+			if(button==1 && buttpre!=button){
+				state=1;
+			}
+			break;
+		case 1:
+			ADCOutputConverted=77;
+			if(button==1 && buttpre!=button){
+				state=0;
+			}
+			break;
+
+
+	}
+
+	buttpre=button;
+}
 /* USER CODE END 4 */
 
 /**
